@@ -1,0 +1,150 @@
+{
+  "name": "concurrency_issues_with_write_operations_in_postgresql",
+  "description": "Concurrency issues with write operations occur when multiple users or processes attempt to write to the same database at the same time, leading to race conditions and data inconsistencies. This can cause corruption of data, loss of data, or unexpected behavior in the database. It is important to handle concurrency issues properly to maintain data integrity and ensure that the database is functioning correctly.",
+  "params": [
+    {
+      "name": "ID_VALUE",
+      "value": ""
+    },
+    {
+      "name": "USERNAME",
+      "value": ""
+    },
+    {
+      "name": "DATABASE_PORT",
+      "value": ""
+    },
+    {
+      "name": "DATABASE_NAME",
+      "value": ""
+    },
+    {
+      "name": "TABLE_NAME",
+      "value": ""
+    },
+    {
+      "name": "DATABASE_PASSWORD",
+      "value": ""
+    },
+    {
+      "name": "HOSTNAME",
+      "value": ""
+    },
+    {
+      "name": "HOST_NAME",
+      "value": ""
+    },
+    {
+      "name": "K8S_CLUSTER_NAME",
+      "value": ""
+    },
+    {
+      "name": "NAMESPACE",
+      "value": ""
+    }
+  ],
+  "cells": [
+    {
+      "name": "cell_1",
+      "type": "MARKDOWN",
+      "enabled": true,
+      "content": "## Concurrency issues with write operations in PostgreSQL.\nConcurrency issues with write operations occur when multiple users or processes attempt to write to the same database at the same time, leading to race conditions and data inconsistencies. This can cause corruption of data, loss of data, or unexpected behavior in the database. It is important to handle concurrency issues properly to maintain data integrity and ensure that the database is functioning correctly."
+    },
+    {
+      "name": "cell_2",
+      "type": "MARKDOWN",
+      "enabled": true,
+      "content": "## Check the number of active connections to the database"
+    },
+    {
+      "name": "cell_3",
+      "type": "OP_LANG",
+      "enabled": true,
+      "content": "(host | host_name=$HOST_NAME) union (pod | k8s_cluster_name=$K8S_CLUSTER_NAME | namespace=$NAMESPACE) | `psql -U ${USERNAME} -h ${HOSTNAME} -c \"SELECT count(*) FROM pg_stat_activity;\"`"
+    },
+    {
+      "name": "cell_4",
+      "type": "MARKDOWN",
+      "enabled": true,
+      "content": "## Check for long running transactions"
+    },
+    {
+      "name": "cell_5",
+      "type": "OP_LANG",
+      "enabled": true,
+      "content": "(host | host_name=$HOST_NAME) union (pod | k8s_cluster_name=$K8S_CLUSTER_NAME | namespace=$NAMESPACE) | `psql -U ${USERNAME} -h ${HOSTNAME} -c \"SELECT pid, age(clock_timestamp(), query_start), usename, query FROM pg_stat_activity WHERE query NOT LIKE '%IDLE%' AND query NOT LIKE '%pg_stat_activity%' AND query NOT LIKE '%SELECT count(*)%' ORDER BY query_start ASC LIMIT 10;\"`"
+    },
+    {
+      "name": "cell_6",
+      "type": "MARKDOWN",
+      "enabled": true,
+      "content": "## Check for deadlocks"
+    },
+    {
+      "name": "cell_7",
+      "type": "OP_LANG",
+      "enabled": true,
+      "content": "(host | host_name=$HOST_NAME) union (pod | k8s_cluster_name=$K8S_CLUSTER_NAME | namespace=$NAMESPACE) | `psql -U ${USERNAME} -h ${HOSTNAME} -c \"SELECT * FROM pg_locks WHERE NOT granted;\"`"
+    },
+    {
+      "name": "cell_8",
+      "type": "MARKDOWN",
+      "enabled": true,
+      "content": "## Check for table locks"
+    },
+    {
+      "name": "cell_9",
+      "type": "OP_LANG",
+      "enabled": true,
+      "content": "(host | host_name=$HOST_NAME) union (pod | k8s_cluster_name=$K8S_CLUSTER_NAME | namespace=$NAMESPACE) | `psql -U ${USERNAME} -h ${HOSTNAME} -c \"SELECT * FROM pg_locks WHERE relation IS NOT NULL;\"`"
+    },
+    {
+      "name": "cell_10",
+      "type": "MARKDOWN",
+      "enabled": true,
+      "content": "## Check for blocked processes"
+    },
+    {
+      "name": "cell_11",
+      "type": "OP_LANG",
+      "enabled": true,
+      "content": "(host | host_name=$HOST_NAME) union (pod | k8s_cluster_name=$K8S_CLUSTER_NAME | namespace=$NAMESPACE) | `psql -U ${USERNAME} -h ${HOSTNAME} -c \"SELECT block.pid AS blocked_pid, block.query AS blocked_query, block.mode AS blocked_mode, block.relation::regclass, now() - block.activity_age AS blocked_duration, blocker.pid AS blocking_pid, blocker.query AS blocking_query, blocker.mode AS blocking_mode, now() - blocker.activity_age AS blocking_duration FROM pg_catalog.pg_locks AS block JOIN pg_catalog.pg_locks AS blocker ON block.relation = blocker.relation AND block.pid != blocker.pid WHERE NOT block.granted;\"`"
+    },
+    {
+      "name": "cell_12",
+      "type": "MARKDOWN",
+      "enabled": true,
+      "content": "## Check for slow queries"
+    },
+    {
+      "name": "cell_13",
+      "type": "OP_LANG",
+      "enabled": true,
+      "content": "(host | host_name=$HOST_NAME) union (pod | k8s_cluster_name=$K8S_CLUSTER_NAME | namespace=$NAMESPACE) | `psql -U ${USERNAME} -h ${HOSTNAME} -c \"SELECT query, (now() - query_start) AS duration FROM pg_stat_activity WHERE state='active' AND now() - query_start > INTERVAL '1 minute';\"`"
+    },
+    {
+      "name": "cell_14",
+      "type": "MARKDOWN",
+      "enabled": true,
+      "content": "## Multiple users or processes are attempting to write to the same database table simultaneously."
+    },
+    {
+      "name": "cell_15",
+      "type": "OP_LANG",
+      "enabled": true,
+      "content": "host | host_name=$HOST_NAME | invoke_stats_check($DATABASE_NAME, $TABLE_NAME)"
+    },
+    {
+      "name": "cell_16",
+      "type": "MARKDOWN",
+      "enabled": true,
+      "content": "## Use PostgreSQL's built-in locking mechanisms, such as row-level locks or advisory locks, to prevent multiple processes from writing to the same data at the same time."
+    },
+    {
+      "name": "cell_17",
+      "type": "OP_LANG",
+      "enabled": true,
+      "content": "host | host_name=$HOST_NAME | invoke_update_table($ID_VALUE, $DATABASE_NAME, $TABLE_NAME)"
+    }
+  ]
+}
